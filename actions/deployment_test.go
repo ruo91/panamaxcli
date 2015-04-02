@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/CenturyLinkLabs/panamax-remote-agent-go/agent"
@@ -22,4 +23,57 @@ func TestDeploymentsList(t *testing.T) {
 		assert.Equal(t, "Test", lo.Rows[0]["Name"])
 		assert.Equal(t, "1", lo.Rows[0]["ID"])
 	}
+}
+
+func TestDeploymentListErrored(t *testing.T) {
+	setupFactory()
+	r := config.Remote{}
+	fakeClient.ErrorForDeploymentList = errors.New("Errored Deployment List")
+	o, err := ListDeployments(r)
+
+	assert.EqualError(t, err, "Errored Deployment List")
+	assert.Equal(t, PlainOutput{}, o)
+}
+
+func TestDeploymentListEmpty(t *testing.T) {
+	setupFactory()
+	r := config.Remote{}
+	o, err := ListDeployments(r)
+
+	assert.NoError(t, err)
+	assert.Equal(t, PlainOutput{"No Deployments"}, o)
+}
+
+func TestDescribeDeployment(t *testing.T) {
+	setupFactory()
+	r := config.Remote{Name: "Test"}
+	fakeClient.DeploymentDescription = agent.DeploymentResponseFull{Name: "Test", ID: 1}
+	o, err := DescribeDeployment(r, "1")
+
+	assert.NoError(t, err)
+
+	assert.Len(t, fakeFactory.NewedRemotes, 1)
+	do, ok := o.(*DetailOutput)
+	if assert.True(t, ok) {
+		assert.Contains(t, "Test", do.Details["Name"])
+		assert.Contains(t, "1", do.Details["ID"])
+	}
+}
+
+func TestDescribeDeploymentEmpty(t *testing.T) {
+	setupFactory()
+	r := config.Remote{}
+	o, err := DescribeDeployment(r, "")
+	assert.EqualError(t, err, "Empty ID")
+	assert.Equal(t, PlainOutput{}, o)
+}
+
+func TestDescribeDeploymentErrored(t *testing.T) {
+	setupFactory()
+	r := config.Remote{}
+	fakeClient.ErrorForDeploymentDescription = errors.New("Errored Deployment List")
+	o, err := DescribeDeployment(r, "Bad ID")
+
+	assert.EqualError(t, err, "Errored Deployment List")
+	assert.Equal(t, PlainOutput{}, o)
 }
